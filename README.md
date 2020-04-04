@@ -48,7 +48,7 @@ The file structure of this repository is as follows:
 
 Below is a visual representation of how the pipeline works, from the user interaction with the data all the way through the end of the pipeline (where human interaction begins).  The end goal, in my case, is to get a list of long-period Planet Hunters Objects of Interest (PHOIs).  This involves a couple of stages of vetting post-pipeline.
 
-<img src="https://drive.google.com/file/d/1qLAsmwGh-dvgqC65wxfYDjGdblIxmbny/view?usp=sharing">
+<img src="https://drive.google.com/file/d/10b38qTVmNyk3WTgyX0ROiCYtjY5Yuvr7/view?usp=sharing" alt="please work" height=660>
 
 Each individual process is explained in more detail in README.txt form.  For more detailed information about the vetting processes, please see [paper, in prep.].
 
