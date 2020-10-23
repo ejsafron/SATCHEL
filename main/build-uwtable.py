@@ -34,6 +34,7 @@ import multiprocessing as mp
 user_directory = '/home/safron/Documents/PH/master/'    # sif
 
 
+dummy = 1.        # Dummy weight to be assigned to any user who has not seen simulations
 
 start_time = timeit.default_timer()
 
@@ -61,7 +62,7 @@ metafeatures = metafeatures[np.isnan(metafeatures['midpoints'])==False]         
 # The only things we'll need from the seed table are username, normcombined, and maybe numclasses
 # But we need to distinguish the number of lightcurve chunk classifications from the number of transit classifications, which we also need
 allusers = list(set(db['user_name']))
-userweights = Table({'username':allusers,'normcombined':list(1. for i in range(len(allusers))),'numLCclasses':np.zeros(len(allusers)),'numtransitclasses':np.zeros(len(allusers)),'transitsclassified':np.zeros(len(allusers))}, names=['username','normcombined','numLCclasses','numtransitclasses','transitsclassified'])        # 0.787419222 for mean
+userweights = Table({'username':allusers,'normcombined':list(dummy for i in range(len(allusers))),'numLCclasses':np.zeros(len(allusers)),'numtransitclasses':np.zeros(len(allusers)),'transitsclassified':np.zeros(len(allusers))}, names=['username','normcombined','numLCclasses','numtransitclasses','transitsclassified'])        # 0.787419222 for mean
 
 userweights = userweights.to_pandas()
 
