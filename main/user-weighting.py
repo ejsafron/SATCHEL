@@ -6,15 +6,31 @@ Created on Tue Oct 20 18:16:16 2020
 
 @author: Emily Safron
 
-For the purpose of filtering out signals from known short-period objects and still being left with those from potentially unknown long-period objects, we must score by the transit feature, rather than by the light curve.  Though this is computationally intensive, it will give us a very straightforward way to filter our results, in the end.
+Construction on this piece of the Planet Hunters (PH) pipeline began with significant contributions by Joseph Schmitt, from work done in 2015.
 
-To score these features, we first need an iterable list of them.  For this, we go back to the user marks themselves.  We go through all the global xmin and xmax ranges, mark by mark, and quantify by measure of overlap fraction and closeness of marking midpoint, which chunks of x-range indicate markings which are "alike" enough to be consolidated together.  The consolidated markings, which we call metafeatures, are written and saved to a csv.
+The purpose of this first piece, broadly, is to gauge PH user performance on transit simulations.  This is done in two parts:
 
-This code takes as input:
+First, the user-made marks must be matched to the synthetic transits inserted into Kepler lightcurves (PART 1: MARK MATCHING).  
+For each synthetic transit (some of which occur in the same light curve), some number of classifications were done by users.  For 
+each transit, user marks with non-zero overlap and a midpoint within user-specified tolerance of the synthetic transit's midpoint 
+are found and recorded.  If a single user made more than one matching mark, only the mark with the closest midpoint is recorded as 
+the match.  No user mark counts as a match for more than one synthetic transit.  If a user made no matching marks on a simulation, 
+'NaN's are recorded.  These records are preserved in `match-user-synthetics.csv`.
+
+Second, user weights are calculated based on how correctly simulation light curves were classified (PART 2: USER WEIGHTING).  Users 
+are "upweighted" for correct markings, and "downweighted" for incorrect markings.  Downweights are not given for failure to mark 
+transits.  The exact amount of each upweight and downweght is impacted by a "transit ID completeness," which is a measure of how 
+difficult a transit is to find based on the percentage of users that find it, and by a decay function that decreases the relative 
+upweight for multiple transits found in a single lightcurve.  These values, for all users who saw simulations, are recorded in 
+`user-weighting.csv`.
+
+Required input:
+    allsynthetics.dat
     mdwarf-classifs.csv
 
-and produces as output:
-    metafeatures.csv.
+Default output:
+    match-user-synthetics.csv
+    user-weighting.csv.
 
 """
 
@@ -27,8 +43,7 @@ from astropy.table import Table
 
 
 # For easy replacement
-user_directory = '/home/safron/Documents/PH/master/new/'    # sif
-#user_directory = '/home/esafron/Documents/PH/master/test/'    # masotan
+user_directory = '/home/safron/Documents/PH/master/10222020/'    # sif
 
 
 ''' Set adjustable pipeline parameters '''
@@ -37,7 +52,7 @@ cutoff = 2.5         # Duration (in days) of the longest user marking we're will
 
 
 
-
+""" PART 1:  MARK MATCHING """
 
 start_time = timeit.default_timer()
 
@@ -85,13 +100,12 @@ matchfilewrite.write('kepid,fits,i,j,k,l,period,prad,srad,kepmag,activity,transi
 
 for i in range(len(setsubjectids)):
     subclasses = db[db['subject_id']==setsubjectids[i]]                         # All classifications of lightcurve[i]
-#    subclasses = db[db['subject_id']=='54171a408841e106190012f4']
     setsubclassids = list(set(subclasses['classification_id']))                 # List of relevant classification ids
     synthid = subclasses['synthetic_id'].iloc[0]                                # Synthetic ID
     curvesynths = synthetics[synthetics['syntheticid']==synthid]                # Info on all synthetic transits in light curve
         
     for j in range(len(setsubclassids)):
-        done = []       # Record indices of marks that have already been consolidated
+        done = []       # Record indices of marks that have already been matched
         
         subclassid = subclasses[subclasses['classification_id']==setsubclassids[j]]     # Only marks from one classification
         
