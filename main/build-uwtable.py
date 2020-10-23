@@ -33,8 +33,8 @@ import multiprocessing as mp
 # For easy replacement
 user_directory = '/home/safron/Documents/PH/master/'    # sif
 
-
-dummy = 1.        # Dummy weight to be assigned to any user who has not seen simulations
+# Adjustable dummy weight to be assigned to any user who has not seen simulations
+dummy = 1.
 
 start_time = timeit.default_timer()
 
