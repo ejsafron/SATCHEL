@@ -15,7 +15,7 @@ We use asynchronous multiprocess mapping to speed up execution.  Fun!
 Required inputs:
     - mdwarf-classifs.csv
     - metafeatures.csv
-    - full_uwseeds.csv
+    - full_uwseeds.tsv
 
 Outputs:
     - transitscoreseeds.tsv
