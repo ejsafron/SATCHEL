@@ -1,16 +1,16 @@
 The main _____ pipeline is comprised of four pieces, which must be run in sequential order.  The default packages required are:
-	- `numpy` (handling array-like objects, indexing, number generation, and some math operations)
-	- `pandas` (handling dataframes)
-	- `ast` (parsing fields from some input files)
-	- `multiprocessing` (parallel processing)
-	- `timeit` (recording runtimes)
-	- `matplotlib` (plotting)
-	- `itertools` (plotting options)
-	- `os` (multiprocessing setup)
-	- `csv` (file-writing)
-	- `math` (some math operations)
-	- `PIL` (output animations)
-	- `astropy` (table construction)
+- `numpy` (handling array-like objects, indexing, number generation, and some math operations)
+- `pandas` (handling dataframes)
+- `ast` (parsing fields from some input files)
+- `multiprocessing` (parallel processing)
+- `timeit` (recording runtimes)
+- `matplotlib` (plotting)
+- `itertools` (plotting options)
+- `os` (multiprocessing setup)
+- `csv` (file-writing)
+- `math` (some math operations)
+- `PIL` (output animations)
+- `astropy` (table construction)
 
 The order in which the pieces must be run is
 	1. `user-weighting.py`
