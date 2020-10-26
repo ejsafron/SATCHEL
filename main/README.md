@@ -99,7 +99,7 @@ Default output:
 
 Runtime:  ~9.4 hours
 
-##3.  `score-seeds.py`
+## 3.  `score-seeds.py`
 
 This piece calculates preliminary scores for each metafeature based on the user weights from the previous step, including both simulation performance and dummy weights.
 
@@ -122,7 +122,7 @@ Default output:
 
 Runtime:  ~1.2 hours.
 
-##4.  `iteration.py`
+## 4.  `iteration.py`
 
 This last pipeline piece is particularly important in the case where a significant fraction of real classifications are done by users who have never seen simulations.  It iteratively adjusts both the user weights and the metafeature scores, using user agreement with majority votes on highly-scoring features as a metric.  After each adjustment of the weights, the distribution is renormalized such that the mean is unity.
 
