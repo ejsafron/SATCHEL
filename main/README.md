@@ -171,7 +171,7 @@ Default output:
 - `weights.gif` *
 - `weight-diffs.gif` *
 
-\* (single plot, updated every iteration)
+\* (single plot, updated every iteration)<br/>
 \** (individual png and gif saved for every iteration `<N>`)
 
 Runtime:  ~2.5 days
