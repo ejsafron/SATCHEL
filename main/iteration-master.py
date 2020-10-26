@@ -29,6 +29,8 @@ To run this code, we will need:
             
     Output:  final_userweights.tsv
              final_transitscores.tsv
+             temp_userweights.tsv
+             temp_transitscores.tsv
              outputlog.csv
              weight-change-rate.pdf *
              weight-distrib-change.pdf *
