@@ -174,4 +174,4 @@ Default output:
 \* (single plot, updated every iteration)<br/>
 \** (individual png and gif saved for every iteration `<N>`)
 
-Runtime:  ~2.5 days
+Runtime:  ~2.5 days (25 iterations)
