@@ -152,6 +152,12 @@ The state of each distribution is saved (and overwritten) after each successful 
 
 <img src="https://github.com/ejsafron/PH-pipeline/blob/master/img/final-states.png" alt="please work" style="max-width:100%;">
 
+The way these distributions changed as iterations progressed is illustrated in the animations below.
+
+| | |
+|:-------------------------:|:-------------------------:|
+|<img width="1604" alt="pleeeeeease work" src="https://github.com/ejsafron/PH-pipeline/blob/master/img/weights.gif">  User weights |  <img width="1604" alt="pleeeeeease" src="https://github.com/ejsafron/PH-pipeline/blob/master/img/scores.gif"> Feature scores |
+
 To run in command line, execute:
 ```
 $> python iteration.py
