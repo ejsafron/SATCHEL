@@ -142,6 +142,8 @@ This code generates an output log file, to which a new line is added after every
 
 Many of these quantities are also plotted, by default.  The iteration ceases when the difference between the mean of the current weight distribution compared to that of the last iteration is zero, within a tolerance of 10<sup>-3</sup>, indicating that the mean of the user weight distribution has been successfully converged to unity.  If the weights of any users are still changing by relatively large amounts (an adjustable parameter, 0.1 by default), iteration will continue until those weights have further stabilized.
 
+<img src="https://github.com/ejsafron/PH-pipeline/blob/master/img/meanmagdiffs.png" alt="please work" style="max-width:100%;">
+
 If a resonant cycle occurs in which, for example, a subset of weights are adjusted back and forth each iteration, preventing convergence, a small, random perturbation is added to the score set to attempt to knock the process out of the resonant loop.
 
 For further details, see Safron et al. (in prep).
@@ -156,7 +158,7 @@ The way these distributions changed as iterations progressed is illustrated in t
 
 | | |
 |:-------------------------:|:-------------------------:|
-|<img width="1604" alt="pleeeeeease work" src="https://github.com/ejsafron/PH-pipeline/blob/master/img/weights.gif">  User weights |  <img width="1604" alt="pleeeeeease" src="https://github.com/ejsafron/PH-pipeline/blob/master/img/scores.gif"> Feature scores |
+|<img width="1604" alt="pleeeeeease work" src="https://github.com/ejsafron/PH-pipeline/blob/master/img/weights.gif">|  <img width="1604" alt="pleeeeeease" src="https://github.com/ejsafron/PH-pipeline/blob/master/img/scores.gif">|
 
 To run in command line, execute:
 ```
