@@ -146,7 +146,11 @@ If a resonant cycle occurs in which, for example, a subset of weights are adjust
 
 For further details, see Safron et al. (in prep).
 
-The state of each distribution is saved (and overwritten) after each successful iteration.  Once convergence has been reached, an informative message is printed and the final distributions are saved.
+The state of each distribution is saved (and overwritten) after each successful iteration.  Once convergence has been reached, an informative message is printed and the final distributions are saved.  Below are comparison plots, showing the initial states of the user weight and feature score distributions (from `full_uwseeds.tsv` and `transitscoreseeds.tsv`, respectively) and the final weight and score distributions (from `final_userweights.tsv` and `final_transitscores.tsv`, respectively) for the PH data.
+
+<img src="https://github.com/ejsafron/PH-pipeline/blob/master/img/initial-states.pdf" alt="please work" style="max-width:100%;">
+
+<img src="https://github.com/ejsafron/PH-pipeline/blob/master/img/final-states.pdf" alt="please work" style="max-width:100%;">
 
 To run in command line, execute:
 ```
