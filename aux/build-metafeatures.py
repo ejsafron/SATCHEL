@@ -238,8 +238,8 @@ metafeatures = pd.DataFrame(np.column_stack([transitids, lightcurves, kicids, xm
 
 
 # Export to csv
-metafeatures.to_csv(user_directory+'metafeatures_new.csv', index=False)
-metafeatures.to_csv(user_directory+'metafeatures-tol'+str(tolerance)[0]+str(tolerance)[2]+'-cut'+str(cutoff)[0]+str(cutoff)[2]+'.csv', index=False)
+metafeatures.to_csv(user_directory+'metafeatures.csv', index=False)
+#metafeatures.to_csv(user_directory+'metafeatures-tol'+str(tolerance)[0]+str(tolerance)[2]+'-cut'+str(cutoff)[0]+str(cutoff)[2]+'.csv', index=False)
 
 print('Transits for scoring isolated.')
 elapsed = timeit.default_timer() - start_time
