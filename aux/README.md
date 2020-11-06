@@ -1,3 +1,5 @@
+## Metafeatures
+
 In any crowdsourced analysis of one-dimensional time-series data, we assume that multiple users will classify each subject, and that each user may make multiple marks on the subject.  An obvious feature may be marked many times, while a less obvious one may be marked by only one user.
 
 The pipeline requires a list of features to score, but we do not want to score the same feature more than once.  This code is a prescription for one method of combining user markings into "metafeatures," for scoring.  This code will not work <em>tantum et tale</em> for data from other projects, as it both requires and generates auxiliary information specific to the <em>Kepler</em> light curves.  It may, nevertheless, be useful for those interested in adapting its methodology.
