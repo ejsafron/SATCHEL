@@ -6,31 +6,17 @@ Created on Tue Oct 20 18:16:16 2020
 
 @author: Emily Safron
 
-Construction on this piece of the Planet Hunters (PH) pipeline began with significant contributions by Joseph Schmitt, from work done in 2015.
+This pipeline piece calculates preliminary user weight "seeds," which are used to calculate the first round of feature scores.  This is accomplished in two major parts:  Part I consists of matching user markings to synthetic signals in simulations, and Part II is comprised of upweighting, downweighting, and normalization based on the matches from Part I.
 
-The purpose of this first piece, broadly, is to gauge PH user performance on transit simulations.  This is done in two parts:
+A user mark is considered a match to a synthetic signal if it has non-zero overlap with the synthetic signal AND its midpoint is close to that of the synthetic signal within a specified tolerance.  User marks with a duration longer than a specified cutoff are ignored.  These two hyperparameters (tolerance and cutoff) are adjustable near the beginning of the code.
 
-First, the user-made marks must be matched to the synthetic transits inserted into Kepler lightcurves (PART 1: MARK MATCHING).  
-For each synthetic transit (some of which occur in the same light curve), some number of classifications were done by users.  For 
-each transit, user marks with non-zero overlap and a midpoint within user-specified tolerance of the synthetic transit's midpoint 
-are found and recorded.  If a single user made more than one matching mark, only the mark with the closest midpoint is recorded as 
-the match.  No user mark counts as a match for more than one synthetic transit.  If a user made no matching marks on a simulation, 
-'NaN's are recorded.  These records are preserved in `match-user-synthetics.csv`.
-
-Second, user weights are calculated based on how correctly simulation light curves were classified (PART 2: USER WEIGHTING).  Users 
-are "upweighted" for correct markings, and "downweighted" for incorrect markings.  Downweights are not given for failure to mark 
-transits.  The exact amount of each upweight and downweght is impacted by a "transit ID completeness," which is a measure of how 
-difficult a transit is to find based on the percentage of users that find it, and by a decay function that decreases the relative 
-upweight for multiple transits found in a single lightcurve.  These values, for all users who saw simulations, are recorded in 
-`user-weighting.csv`.
-
-Required input:
-    allsynthetics.dat
+This code takes as input:
     mdwarf-classifs.csv
+    syntheticdata.csv
 
-Default output:
+and produces as output:
     match-user-synthetics.csv
-    user-weighting.csv.
+    user-weighting.csv
 
 """
 
@@ -38,21 +24,18 @@ Default output:
 import numpy as np
 import pandas as pd
 import timeit
-from astropy.io import ascii
 from astropy.table import Table
 
 
 # For easy replacement
-user_directory = '/home/safron/Documents/PH/master/10222020/'    # sif
+user_directory = '/home/safron/Documents/PH/master/11242020/'    # sif
 
 
 ''' Set adjustable pipeline parameters '''
-tolerance = 1.0      # How close (in days) the midpoints of two user markings must be if indicating the same feature
-cutoff = 2.5         # Duration (in days) of the longest user marking we're willing to assume was made intentionally
+tolerance = 0.6      # How close (in days) the midpoints of two user markings must be if indicating the same feature
+cutoff = 3.5         # Duration (in days) of the longest user marking we're willing to assume was made intentionally
 
 
-
-""" PART 1:  MARK MATCHING """
 
 start_time = timeit.default_timer()
 
@@ -61,7 +44,8 @@ start_time = timeit.default_timer()
 ''' Define functions '''
 def funcoverlap(synx, userx):
 	'''Returns the total length of the overlapping areas'''
-    # EMILY NOTE:  synx is a list of the form [beginning of transit, end of transit] and userx is a list of the form [beginning of user marking, end of user marking].
+    # synx is a list of the form [beginning of transit, end of transit]
+    # userx is a list of the form [beginning of user marking, end of user marking]
 	return max(0, min(synx[1], userx[1]) - max(synx[0], userx[0]))
 
 
@@ -69,19 +53,15 @@ def funcoverlap(synx, userx):
 ''' Read in data '''
 # All M dwarf classifications
 db = pd.read_csv(user_directory+'mdwarf-classifs.csv')
-db = db[db['synthetic']==True]
-db = db[db['synthetic_id']>1412]
+db = db[db['synthetic']==True]                                                  # We only need simulations for this
 
 # Get set of all simulation lightcurve ids from db
 setsubjectids = list(set(db['subject_id'][db['synthetic']==True]))
 
 
-
 ''' Read in the synthetic file '''
-# Cut out entries with syntheticid < 1412, because those synthetic transits are made by "small planets in hard-to-see stars." 
-synthetics = ascii.read(user_directory+'allsynthetics.dat', header_start=0, data_start=1)
-synthetics = synthetics[np.where(synthetics['syntheticid']>1412)]
-synthetics = synthetics.to_pandas()
+synthetics = pd.read_csv(user_directory+'syntheticdata.csv')
+
 
 print('Completed setting up list of data arrays.')
 
@@ -93,48 +73,41 @@ matchfilename = user_directory+'match-user-synthetics.csv'
 matchfilewrite = open(matchfilename,'w')
 
 # Write header containing column names into line 0
-matchfilewrite.write('kepid,fits,i,j,k,l,period,prad,srad,kepmag,activity,transitid,syntheticid,plphase,synpixmin,synpixmax,synxmin,synxmax,synmidpoint,synduration,userxmin,userxmax,usermidpoint,userduration,synoverlap,useroverlap,midpointdiff,username,quarter,classid,createdat,datalocation,starttime,subjectid,syntheticbool,keplertype,xminrelative,xmaxrelative\n')
+matchfilewrite.write('username,classid,subjectid,signalid,synoverlap,syntheticid,userxmin,userxmax\n')
 
 
-
+print("Matching user marks to synthetic signals...")
 
 for i in range(len(setsubjectids)):
     subclasses = db[db['subject_id']==setsubjectids[i]]                         # All classifications of lightcurve[i]
     setsubclassids = list(set(subclasses['classification_id']))                 # List of relevant classification ids
     synthid = subclasses['synthetic_id'].iloc[0]                                # Synthetic ID
-    curvesynths = synthetics[synthetics['syntheticid']==synthid]                # Info on all synthetic transits in light curve
+    synthsubjectdata = synthetics[synthetics['syntheticid']==synthid]                # Info on all synthetic transits in light curve
         
     for j in range(len(setsubclassids)):
-        done = []       # Record indices of marks that have already been matched
+        done = []       # Record indices of marks that have already been consolidated
         
         subclassid = subclasses[subclasses['classification_id']==setsubclassids[j]]     # Only marks from one classification
         
         # Extract user & classification information
         username = subclassid['user_name'].iloc[0]
-        quarter = subclassid['quarter'].iloc[0]
         classid = subclassid['classification_id'].iloc[0]
-        createdat = subclassid['created_at'].iloc[0]
-        datalocation = subclassid['data_location'].iloc[0]
-        starttime = subclassid['start_time'].iloc[0]
         subjectid = subclassid['subject_id'].iloc[0]
-        syntheticbool = subclassid['synthetic'].iloc[0]
-        keplertype = subclassid['kepler_type'].iloc[0]
         
         if np.isnan(subclassid['xMinGlobal'].iloc[0])==True:                    # If user made no marks on light curve
             # Assign np.nans to everything else
-            synoverlap,useroverlap,midpointdiff,userxmin,userxmax,userduration,usermidpoint,xminrelative,xmaxrelative = np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan
+            synoverlap,userxmin,userxmax = np.nan,np.nan,np.nan
             
-            for k in range(len(curvesynths)):
+            for k in range(len(synthsubjectdata)):
                 # Extract information about each synthetic
-                synxmin,synxmax = curvesynths['synxmin'].iloc[k],curvesynths['synxmax'].iloc[k]
+                signalid = synthsubjectdata['signalid'].iloc[k]
+                synxmin,synxmax = synthsubjectdata['synxmin'].iloc[k],synthsubjectdata['synxmax'].iloc[k]
                 synduration = synxmax-synxmin
                 synmidpoint = np.average([synxmin,synxmax])
                 
                 # Write an "empty" line into the output file
                 line = []
-                for value in synthetics.iloc[k]:
-                    line.append(value)
-                for value in [synmidpoint,synduration,userxmin,userxmax,usermidpoint,userduration,synoverlap,useroverlap,midpointdiff,username,quarter,classid,createdat,datalocation,starttime,subjectid,syntheticbool,keplertype,xminrelative,xmaxrelative]:
+                for value in [username,classid,subjectid,signalid,synoverlap,synthid,userxmin,userxmax]:
                     line.append(value)
                 for l in range(len(line)):
                     if l < len(line)-1:
@@ -143,36 +116,30 @@ for i in range(len(setsubjectids)):
                         matchfilewrite.write(str(line[l])+'\n')
         
         else:                                                                   # If the user made at least one mark on the light curve
-            for k in range(len(curvesynths)):
+            for k in range(len(synthsubjectdata)):
                 # Extract information about each synthetic
-                synxmin,synxmax = curvesynths['synxmin'].iloc[k],curvesynths['synxmax'].iloc[k]
+                synxmin,synxmax = synthsubjectdata['synxmin'].iloc[k],synthsubjectdata['synxmax'].iloc[k]
                 synduration = synxmax-synxmin
                 synmidpoint = np.average([synxmin,synxmax])
                 
-                idx,alloverlap,alluseroverlap,allmidpointdiff,alluserxmin,alluserxmax,alluserduration,allusermidpoint,alluserxminrel,alluserxmaxrel = [],[],[],[],[],[],[],[],[],[]
+                idx,alloverlap,allmidpointdiff,alluserxmin,alluserxmax,alluserduration = [],[],[],[],[],[]
 
                 for m in range(len(subclassid)):
                     tmpuserxmin,tmpuserxmax = float(subclassid['xMinGlobal'].iloc[m]),float(subclassid['xMaxGlobal'].iloc[m])
                     tmpuserduration = tmpuserxmax-tmpuserxmin
                     tmpusermidpoint = np.average([tmpuserxmin,tmpuserxmax])
-                    tmpuserxminrel = float(subclassid['xMinRelative'].iloc[m])
-                    tmpuserxmaxrel = float(subclassid['xMaxRelative'].iloc[m])
                     idx.append(m)
                     alluserxmin.append(tmpuserxmin)
                     alluserxmax.append(tmpuserxmax)
-                    alluserxminrel.append(tmpuserxminrel)
-                    alluserxmaxrel.append(tmpuserxmaxrel)
                     alluserduration.append(tmpuserxmax-tmpuserxmin)
                     alloverlap.append(funcoverlap([tmpuserxmin,tmpuserxmax],[synxmin,synxmax])/synduration)
-                    alluseroverlap.append(funcoverlap([tmpuserxmin,tmpuserxmax],[synxmin,synxmax])/tmpuserduration)
-                    allusermidpoint.append(tmpusermidpoint)
                     allmidpointdiff.append(np.abs(synmidpoint-tmpusermidpoint))
             
                 # Still inside j loop, for specific classification id
                 # And k loop, for specific row of synthetic id
                 
-                usermarksdf = pd.DataFrame(np.column_stack([idx,alluserxmin,alluserxmax,alluserxminrel,alluserxmaxrel,alluserduration,alloverlap,alluseroverlap,allusermidpoint,allmidpointdiff]),columns=['idx','userxmin','userxmax','userxminrel','userxmaxrel','userduration','overlap','useroverlap','usermidpoint','midpointdiff'])
-                
+                usermarksdf = pd.DataFrame(np.column_stack([idx,alluserxmin,alluserxmax,alluserduration,alloverlap,allmidpointdiff]), columns=['idx','userxmin','userxmax','userduration','overlap','midpointdiff'])
+                                
                 # Find all marks with midpoints within the specified tolerance of the synthetic's midpoint
                 matches = usermarksdf[(usermarksdf['overlap']>0) | (usermarksdf['userduration']<tolerance)]
                 matches = matches[matches['midpointdiff']<=tolerance]
@@ -191,27 +158,19 @@ for i in range(len(setsubjectids)):
                             break
                 
                 if match==False:                                                # If no match or no UNUSED match was found
-                    synoverlap,useroverlap,midpointdiff,userxmin,userxmax,userduration,usermidpoint,xminrelative,xmaxrelative = np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan
+                    synoverlap,userxmin,userxmax = np.nan,np.nan,np.nan
                     
                 else:
                     synoverlap = matches['overlap'].iloc[n]
-                    useroverlap = matches['useroverlap'].iloc[n]
-                    midpointdiff = matches['midpointdiff'].iloc[n]
                     userxmin = matches['userxmin'].iloc[n]
                     userxmax = matches['userxmax'].iloc[n]
-                    userduration = matches['userduration'].iloc[n]
-                    usermidpoint = matches['usermidpoint'].iloc[n]
-                    xminrelative = matches['userxminrel'].iloc[n]
-                    xmaxrelative = matches['userxmaxrel'].iloc[n]
                     
                     # Add subclassid index of match to done list
                     done.append(int(matches['idx'].iloc[n]))
                 
                 # Write line into the output file
                 line = []
-                for value in synthetics.iloc[k]:
-                    line.append(value)
-                for value in [synmidpoint,synduration,userxmin,userxmax,usermidpoint,userduration,synoverlap,useroverlap,midpointdiff,username,quarter,classid,createdat,datalocation,starttime,subjectid,syntheticbool,keplertype,xminrelative,xmaxrelative]:
+                for value in [username,classid,subjectid,signalid,synoverlap,synthid,userxmin,userxmax]:
                     line.append(value)
                 for l in range(len(line)):
                     if l < len(line)-1:
@@ -262,8 +221,6 @@ matching = pd.read_csv(user_directory+'match-user-synthetics.csv')
 dbnonsynth = db[db['synthetic']==False]     # subset of non-synthetic classifications
 dbsynth = db[db['synthetic']==True]     # subset of synthetic classifications
 
-# Exclude the 761 classifcations of synthetics with synthetic_id < 1412, as in matching code
-dbsynth = dbsynth[dbsynth['synthetic_id']>1412]
 
 
 ''' Set up the table '''
@@ -272,27 +229,33 @@ allusers = list(set(matching['username']))
 userweights = Table({'username':allusers,'upweight':np.ones(len(allusers)),'downweight':np.ones(len(allusers)),'combined':np.ones(len(allusers)),'normupweight':np.zeros(len(allusers)),'normdownweight':np.zeros(len(allusers)),'normcombined':np.zeros(len(allusers)),'numclasses':np.zeros(len(allusers))}, names=['username','upweight','downweight','combined','normupweight','normdownweight','normcombined','numclasses'])
 
 
+print("Beginning upweighting...")
+
 ''' Starting the upweighting portion '''
 
+featureidlist = []
+sidclist = []
 for i in range(len(allusers)):
     # Find all classifications of specific user
     userclasses = matching[matching['username']==allusers[i]]
     setuserclassids = list(set(matching['classid'][matching['username']==allusers[i]]))
     # For each classification done by user, get list of transit ids
     for j in range(len(setuserclassids)):
-        transitids = list(set(userclasses['transitid'][userclasses['classid']==setuserclassids[j]]))
+        signalids = list(set(userclasses['signalid'][userclasses['classid']==setuserclassids[j]]))
         userclassesclassid = userclasses[userclasses['classid']==setuserclassids[j]]
         weightlist = []     # For storing upweight values prior to applying decay function
-        # Go through all classifications of each transitid and count the total number detected
-        for k in range(len(transitids)):
+        # Go through all classifications of each signalid and count the total number detected
+        for k in range(len(signalids)):
             # If user correctly classified a synthetic, then we increase their weight
             if userclassesclassid['synoverlap'].iloc[k]>0.5: 
-                transitidclasses = matching[matching['transitid']==transitids[k]]
-                numidentified = transitidclasses[transitidclasses['synoverlap']>0.5]
+                signalidclasses = matching[matching['signalid']==signalids[k]]
+                numidentified = signalidclasses[signalidclasses['synoverlap']>0.5]
                 # Find increase in user weight, maximum increase = (1.0/completenesscutoff)-1
-                transitidcompleteness = float(len(numidentified))/float(len(transitidclasses))
-                transitidcompleteness = max([transitidcompleteness,completenesscutoff])
-                weightlist.append(1.0/transitidcompleteness-1.0)
+                signalidcompleteness = float(len(numidentified))/float(len(signalidclasses))
+                signalidcompleteness = max([signalidcompleteness,completenesscutoff])
+                weightlist.append(1.0/signalidcompleteness-1.0)
+                featureidlist.append(signalids[k])
+                sidclist.append(signalidcompleteness)
             userweights[i]['numclasses'] += 1
         weightlist.sort()
         # Apply decay function
@@ -300,7 +263,29 @@ for i in range(len(allusers)):
             weightlist[b] = weightlist[b]*decay(b)
             userweights[i]['upweight'] += weightlist[b]
             
-    print('{0:0.2f}'.format(100.0*float(i+1)/float(len(allusers)))+'% completed.  '+allusers[i]+' weight = '+str(userweights[i]['upweight'])+'. Numclasses = '+str(int(userweights[i]['numclasses']))+'. i = '+str(i)+'.')
+    if i%10==0:
+        print('{0:0.2f}'.format(100*float(i)/float(len(allusers)))+'% completed.')
+
+print("Completed upweighting.")
+
+
+
+# Save SIDC info for later analysis
+sidcs = pd.DataFrame(np.column_stack([featureidlist,sidclist]), columns=['signalid', 'sidc'])
+
+featureset = list(set(featureidlist))
+# Rewrite old lists, don't need new variables
+featureidlist = []
+sidclist = []
+for i in range(len(featureset)):
+    featureidlist.append(featureset[i])
+    sidclist.append(sidcs['sidc'][sidcs['signalid']==featureset[i]].iloc[0])   # May only be one entry
+    
+# Again, new dataframe, old variable
+sidcs = pd.DataFrame(np.column_stack([featureidlist,sidclist]), columns=['signalid', 'sidc'])
+sidcs.to_csv(user_directory+'sidcs.csv', index=False)
+
+
 
 
 ''' Starting the downweighting portion '''
@@ -313,6 +298,8 @@ classid,usernames,syntheticid,xminglobal,xmaxglobal = np.asarray(dbsynth['classi
 # Getting a list of unique classids
 setclassid = list(set(classid))
 
+
+print("Beginning downeighting...")
 
 for i in range(len(setclassid)):
     # Getting list of markings for each unique classid
@@ -338,22 +325,25 @@ for i in range(len(setclassid)):
             if isitcorrect == False and classusername in userweights['username']:
                 countwrong += 1
                 userweights[np.where(userweights['username']==classusername)[0][0]]['downweight'] += 1
-    print('{0:0.2f}'.format(100.0*float(i+1)/float(len(setclassid)))+'% completed.  '+classusername+' countwrong = '+str(countwrong)+'. i = '+str(i)+'.')
 
+    if i%10==0:
+        print('{0:0.2f}'.format(100*float(i)/float(len(setclassid)))+'% completed.')
+
+print("Downweighting complete.")
 
 
 # Finding the highest weight possible if users marked every single transit and no false positives
 syntheticids = list(set(matching['syntheticid']))
 highestweight = 1
 for i in range(len(syntheticids)):
-    transitids = list(set(matching['transitid'][matching['syntheticid']==syntheticids[i]]))
+    signalids = list(set(matching['signalid'][matching['syntheticid']==syntheticids[i]]))
     weightlist = []
-    for j in range(len(transitids)):
-        synthetic = matching.iloc[np.where(matching['transitid']==transitids[j])]
+    for j in range(len(signalids)):
+        synthetic = matching.iloc[np.where(matching['signalid']==signalids[j])]
         numidentified = synthetic.iloc[np.where(synthetic['synoverlap']>0.5)]
-        transitidcompleteness = float(len(numidentified))/float(len(synthetic))
-        transitidcompleteness = max([transitidcompleteness,completenesscutoff])
-        weightlist.append(1.0/transitidcompleteness-1.0)
+        signalidcompleteness = float(len(numidentified))/float(len(synthetic))
+        signalidcompleteness = max([signalidcompleteness,completenesscutoff])
+        weightlist.append(1.0/signalidcompleteness-1.0)
     weightlist.sort()
     for k in range(len(weightlist)):
         weightlist[k] = weightlist[k]*decay(k)
@@ -369,8 +359,11 @@ userweights['normdownweight'] = userweights['downweight']/np.average(userweights
 userweights['combined'] = userweights['normupweight']/userweights['normdownweight']
 userweights['normcombined'] = userweights['combined']/np.average(userweights['combined'])
 
+print("Normalization complete.")
 
-# Writing output
+
+''' Writing output '''
+
 weightfilewrite = open(weightfilename,'w')
 for i in range(len(userweights)):
     weightfilewrite.write(userweights[i][0]+','+str(userweights[i][1])+','+str(userweights[i][2])+','+str(userweights[i][3])+','+str(userweights[i][4])+','+str(userweights[i][5])+','+str(userweights[i][6])+','+str(userweights[i][7])+'\n')
