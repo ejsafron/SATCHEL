@@ -18,7 +18,7 @@ Required inputs:
     - full_uwseeds.tsv
 
 Outputs:
-    - transitscoreseeds.tsv
+    - mfscoreseeds.tsv
 
 
 """
@@ -32,14 +32,13 @@ import timeit
 
 
 # For easy replacement
-user_directory = '/home/safron/Documents/PH/master/'    # sif
+user_directory = '/home/safron/Documents/PH/master/11242020/'    # sif
 
 
 ''' Define constants and small functions '''
 
-tolerance = 0.7     # How close (in days) the midpoints of two user markings must be if indicating the same feature
-overlap = 0.5       # Fraction that two user markings must overlap to be considered the same
-cutoff = 6.0        # Duration (in days) of the longest user marking we're willing to assume was made intentionally
+tolerance = 0.6     # How close (in days) the midpoints of two user markings must be if indicating the same feature
+cutoff = 3.5        # Duration (in days) of the longest user marking we're willing to assume was made intentionally
 
 def fracoverlap(user1x, user2x):
     ''' Returns the fraction of overlapping areas '''
@@ -48,7 +47,7 @@ def fracoverlap(user1x, user2x):
     return (max(0, min(user1x[1], user2x[1]) - max(user1x[0], user2x[0])))/min([dur1, dur2])
 
 def score(Wlist, wlist):
-    # Wlist = list of weights of users who examined lightcurve
+    # Wlist = list of weights of users who examined subject
     # wlist = list of weights of users who agreed/disagreed (scoreyes/scoreno) that the transit occurred
     if len(wlist) == 0:
         return 0.0
@@ -60,25 +59,24 @@ def score(Wlist, wlist):
 
 # All M dwarf classifications
 db = pd.read_csv(user_directory+'mdwarf-classifs.csv')
-setsubjectids = list(set(db['subject_id']))  # Set of all unique lightcurve ids
+setsubjectids = list(set(db['subject_id']))  # Set of all unique subject ids
 
 # Isolated metafeatures for scoring
 metafeatures = pd.read_csv(user_directory+'metafeatures.csv')
-#metafeatures_wdupes = metafeatures   # Not sure if needed later
-metafeatures = metafeatures[np.isnan(metafeatures['midpoints'])==False]
-
 
 # Userweight table
 userweights = pd.read_csv(user_directory+'full_uwseeds.tsv', sep="\t")
 allusers = list(userweights['username'])        # useful later
 
 
+print("Completed importing data.")
 
-''' Create transit scoring table '''
+
+''' Create metafeature scoring table '''
 
 # Build without usersyes, usersno, weightsyes, weightsno, scoreyes, scoreno, and numclasses columns, to be concatenated later
-transit_scores = Table({'transitid':list(metafeatures['transitids']), 'lightcurve':list(metafeatures['lightcurves']), 'kicid':list(metafeatures['kicids']), 'xmin':list(metafeatures['xmin']), 'xmax':list(metafeatures['xmax']), 'duration':list(metafeatures['durations'])}, names=['transitid', 'lightcurve', 'kicid', 'xmin', 'xmax', 'duration'])
-transit_scores = transit_scores.to_pandas()
+mf_scores = Table({'featureid':list(metafeatures['feature_id']), 'subjectid':list(metafeatures['subject_id']), 'xmin':list(metafeatures['xmin']), 'xmax':list(metafeatures['xmax']), 'duration':list(metafeatures['duration'])}, names=['featureid', 'subjectid', 'xmin', 'xmax', 'duration'])
+mf_scores = mf_scores.to_pandas()
 
 
 
@@ -86,14 +84,14 @@ transit_scores = transit_scores.to_pandas()
 
 def calc_score_seed(curve_id):
     
-    subtransits = transit_scores[transit_scores['lightcurve']==curve_id]
+    subtransits = mf_scores[mf_scores['subjectid']==curve_id]
     numtransits = len(subtransits)
-    subidclasses = db[db['subject_id']==curve_id]  # All classifications of the lightcurve
-    numclasses = len(list(set(subidclasses['classification_id'])))  # Number of unique classifications of the lightcurve (and, therefore, the transit)
-    subusers = list(set(subidclasses['user_name']))  # Users who classified the lightcurve
+    subidclasses = db[db['subject_id']==curve_id]  # All classifications of the subject
+    numclasses = len(list(set(subidclasses['classification_id'])))  # Number of unique classifications of the subject/metafeature
+    subusers = list(set(subidclasses['user_name']))  # Users who classified the subject
     subuserweights = []
     
-    # Fill subuserweights with userweights of all users who classified the lightcurve
+    # Fill subuserweights with userweights of all users who classified the subject
     for u in range(len(subusers)):
         subuserweights.append(float(userweights['normcombined'][userweights['username']==subusers[u]]))
     
@@ -101,22 +99,22 @@ def calc_score_seed(curve_id):
     scorelist = []
     
     # Big Loop
-    for j in range(numtransits):  # For each unscored metafeature in the lightcurve
+    for j in range(numtransits):  # For each unscored metafeature in the subject
         usersyes = []       # Users who identified the feature
         weightsyes = []     # Weights of users who identified the feature
         usersno = []        # Users who did NOT identify the feature
         weightsno = []      # Weights of users who did NOT identify the feature
-        transitid = int(subtransits['transitid'].iloc[j])
+        featureid = int(subtransits['featureid'].iloc[j])
         markxmin = subtransits['xmin'].iloc[j]
         markxmax = subtransits['xmax'].iloc[j]
         markx = [markxmin,markxmax]
         markmidpoint = np.mean(markx)
-        idx = transit_scores.loc[transit_scores['transitid']==transitid].index[0]   # Row index of transit_scores table corresponding to transit feature [j]
-        for k in range(len(subusers)):  # For each user who classified the lightcurve
-            usersubidclasses = subidclasses[subidclasses['user_name']==subusers[k]]    # Classifications of the lightcurve by user[k]
+        idx = mf_scores.loc[mf_scores['featureid']==featureid].index[0]   # Row index of mf_scores table corresponding to transit feature [j]
+        for k in range(len(subusers)):  # For each user who classified the subject
+            usersubidclasses = subidclasses[subidclasses['user_name']==subusers[k]]    # Classifications of the subject by user[k]
             match = False
 
-            # For each classification[l] of the lightcurve by user[k], search for matches with transit[j]
+            # For each classification[l] of the subject by user[k], search for matches with transit[j]
             # If a match is found, change match = True and break out of l loop
             for l in range(len(usersubidclasses)):
                 if np.isnan(usersubidclasses['xMinGlobal'].iloc[l])==True:
@@ -126,7 +124,7 @@ def calc_score_seed(curve_id):
                     testxmax = usersubidclasses['xMaxGlobal'].iloc[l]
                     testx = [testxmin,testxmax]
                     testmidpoint = np.mean(testx)
-                    if (np.isclose(markmidpoint, testmidpoint, rtol = tolerance)==True) & (fracoverlap(markx, testx) >= overlap):   # If classif mark matches the transit
+                    if (np.isclose(markmidpoint, testmidpoint, rtol = tolerance)==True) & (fracoverlap(markx, testx) >= 0.0):   # If classif mark matches the transit
                         match = True
                         break
                     else:
@@ -223,15 +221,15 @@ score_df = pd.DataFrame(np.column_stack([usersyeslist, usersnolist, weightsyesli
 
 # Concatenate scores dataframe to big dataframe along column axis
 score_df['indx'] = score_df['indx'].astype('int')                   # Change type of indx column to integers for sorting
-score_df = score_df.sort_values(by=['indx'], ascending=True)        # Sort by index, to match row index of transit_scores dataframe
+score_df = score_df.sort_values(by=['indx'], ascending=True)        # Sort by index, to match row index of mf_scores dataframe
 score_df = score_df.set_index('indx')                               # Change index column to indx
 
-transit_scores = pd.concat([transit_scores, score_df], axis=1)
+mf_scores = pd.concat([mf_scores, score_df], axis=1)
 
 
 # Save to a .tsv file
 # NOTE:  MUST be a .tsv, not a .csv.  The usersyes, usersno, weightsyes, and weightsno fields all contain commas that will incorrectly trip the reading of a .csv file.
-transit_scores.to_csv(user_directory+'transitscoreseeds.tsv', sep="\t", index=False)
+mf_scores.to_csv(user_directory+'mfscoreseeds.tsv', sep="\t", index=False)
 
 
 # Get time results
