@@ -24,13 +24,13 @@ scores and user weights are saved.
 To run this code, we will need:
     
     Input:   metafeatures.csv
-             transitscoreseeds.csv
-             full_uwseeds.csv
+             mfscoreseeds.tsv
+             full_uwseeds.tsv
             
     Output:  final_userweights.tsv
-             final_transitscores.tsv
+             final_mfscores.tsv
              temp_userweights.tsv
-             temp_transitscores.tsv
+             temp_mfscores.tsv
              outputlog.csv
              weight-change-rate.pdf *
              weight-distrib-change.pdf *
@@ -67,8 +67,8 @@ from PIL import Image
 
 
 # For easy replacement
-user_directory = '/home/safron/Documents/PH/master/'    # sif
-#user_directory = '/home/esafron/Documents/PH/master/'    # masotan
+user_directory = '/home/safron/Documents/PH/master/11242020/'    # sif
+#user_directory = '/home/esafron/Documents/PH/master/11242020/'    # masotan
 
 # Create directory for plots
 os.mkdir(user_directory+'plots')
@@ -98,37 +98,37 @@ filewrite.writerow(header)
 
 # The metafeatures
 allfeatures = pd.read_csv(user_directory+'metafeatures.csv')
-#  ||  transitids  |  lightcurves |  kicids  |  xmin  |  xmax  |  durations  |  midpoints  |  synth_flag  |  dupe_flag  ||
+#  ||  feature_id  |  subject_id  |  kepid  |  xmin  |  xmax  |  duration  |  midpoint  |  synth_flag  ||
 
 # TEST
 print("# of metafeatures:  "+str(len(allfeatures)))
 
-# The transit score seeds
-score_seeds = pd.read_csv(user_directory+'transitscoreseeds.tsv', sep="\t", names=['transitid', 'lightcurve', 'kicid', 'xmin', 'xmax', 'duration', 'usersyes', 'usersno', 'weightsyes', 'weightsno', 'scoreyes', 'scoreno', 'numclasses'], skiprows=1)
-#  ||  transitid  |  lightcurve  |  kicid  |  userxmin  |  userxmax  |  duration  |  usersyes  |  usersno  |  weightsyes  |  weightsno  |  scoreyes  |  scoreno  |  numclasses  ||
+# The metafeature score seeds
+mfscores = pd.read_csv(user_directory+'mfscoreseeds.tsv', sep="\t", names=['featureid', 'subjectid', 'xmin', 'xmax', 'duration', 'usersyes', 'usersno', 'weightsyes', 'weightsno', 'scoreyes', 'scoreno', 'numclasses'], skiprows=1)
+#  ||  featureid  |  subjectid  |  userxmin  |  userxmax  |  duration  |  usersyes  |  usersno  |  weightsyes  |  weightsno  |  scoreyes  |  scoreno  |  numclasses  ||
 
 
 # The userweight seeds
 userweights = pd.read_csv(user_directory+'full_uwseeds.tsv', sep="\t")
-#  ||  username  |  username_check  |  normcombined  |  numLCclasses  |  numtransitclasses  |  transitsclassified  ||
+#  ||  username  |  username_check  |  normcombined  |  numsubjectclasses  |  numfeatureclasses  |  featuresclassified  ||
 
 
 
 # These things can be defined outside the loop
 # The only thing that will update with each iteration is the past_weightlist
-featurelist = list(score_seeds['transitid'])    # List of all transit IDs
+featurelist = list(mfscores['featureid'])       # List of all transit IDs
 userlist = list(userweights['username'])        # List of all users
 past_weightlist = list(userweights['normcombined'])
-Nlist = list(userweights['numtransitclasses'])
+Nlist = list(userweights['numfeatureclasses'])
 
-print("# of features for analysis:  "+str(len(featurelist)))
+print("# of metafeatures for analysis:  "+str(len(featurelist)))
 
 
 ''' Define score calculation function '''
 
 def score(Wlist, wlist):
-    # Wlist = list of weights of users who examined lightcurve
-    # wlist = list of weights of users who agreed/disagreed (scoreyes/scoreno) that the transit occurred
+    # Wlist = list of weights of users who examined the subject
+    # wlist = list of weights of users who agreed/disagreed (scoreyes/scoreno) that the feature was significant
     if len(wlist) == 0:
         return 0.0
     else:
@@ -149,7 +149,7 @@ iteration_counts = []
 changing_counts = []
 weight_distribs = [list(userweights['normcombined'])]
 diff_distribs = []
-score_distribs = [list(score_seeds['scoreyes'])]
+score_distribs = [list(mfscores['scoreyes'])]
 meanmagdiffs = []
 
 # For plotting later
@@ -191,9 +191,9 @@ ax.legend(loc=1, prop={'size': 10})
 ax.set_xlim(-0.1,1.1)
 ax.set_ylim(10, 5*10**5)
 ax.set_yticks([10**1,10**2,10**3,10**4,10**5])
-ax.set_xlabel("Transit score")
+ax.set_xlabel("Metafeature score")
 ax.set_ylabel("Count")
-fig.suptitle("Transit 'yes' score distribution as iteration progresses", y=0.99)
+fig.suptitle("Feature 'yes' score distribution as iteration progresses", y=0.99)
 plt.subplots_adjust(left=0.10, right=0.95, top=0.94)
 plt.savefig(user_directory+'plots/score-distrib-changes/score-distrib-change-'+str(iteration_count)+'.png')   # New file
 plt.close()
@@ -215,35 +215,35 @@ while do_continue == True:
     # Userweight adjustment function
     def adjust_weight(the_user):
         idx = int(np.where(np.asarray(userlist)==the_user)[0][0])
-        transits_classified = ast.literal_eval(userweights['transitsclassified'][userweights['username']==the_user].iloc[0])
+        mfs_classified = ast.literal_eval(userweights['featuresclassified'][userweights['username']==the_user].iloc[0])
         N = int(Nlist[idx])
         past_weight = float(past_weightlist[idx])
         scores = []
         error_flag = False
     
-        if len(transits_classified)==0:
+        if len(mfs_classified)==0:
             new_weight = past_weight
         
         else:
-            for i in range(len(transits_classified)):       # may be as few as 1
-                usersyes = score_seeds['usersyes'][score_seeds['transitid']==transits_classified[i]]
+            for i in range(len(mfs_classified)):       # may be as few as 1
+                usersyes = mfscores['usersyes'][mfscores['featureid']==mfs_classified[i]]
                 usersyes = usersyes.iloc[0][1:-1]
                 usersyes = usersyes.split(',')
                 
-                usersno = score_seeds['usersno'][score_seeds['transitid']==transits_classified[i]]
+                usersno = mfscores['usersno'][mfscores['featureid']==mfs_classified[i]]
                 usersno = usersno.iloc[0][1:-1]
                 usersno = usersno.split(',')
                 
                 if the_user in usersyes:
-                    scores.append(float(score_seeds['scoreyes'][score_seeds['transitid']==transits_classified[i]]))
+                    scores.append(float(mfscores['scoreyes'][mfscores['featureid']==mfs_classified[i]]))
                     continue
                 
                 elif the_user in usersno:
-                    scores.append(float(score_seeds['scoreno'][score_seeds['transitid']==transits_classified[i]]))
+                    scores.append(float(mfscores['scoreno'][mfscores['featureid']==mfs_classified[i]]))
                     continue
                 
                 else:
-                    print("Weight adjustment error:  User "+the_user+" did not classify transit metafeature "+str(transits_classified[i])+".")
+                    print("Weight adjustment error:  User "+the_user+" did not classify metafeature "+str(mfs_classified[i])+".")
                     # Change error flag to discontinue while loop
                     error_flag = True
                     break
@@ -253,13 +253,7 @@ while do_continue == True:
     
     # Initialize timer
     start_time = timeit.default_timer()        
-    
-    
-#    new_weight_results = []
-#    for user in userlist:
-#        new_weight_results.append(adjust_weight(user))
-    
-    
+        
     # Pool
     pool = mp.Pool(mp.cpu_count())
     new_weight_results = []
@@ -270,7 +264,6 @@ while do_continue == True:
     
     # Get time results
     elapsed = timeit.default_timer() - start_time
-#    print("Test, elapsed time = "+str(elapsed)+" sec.")                         # TEST ONLY
     total_elapsed = timeit.default_timer() - loop_start_time
     print("User weights adjusted, iteration # "+str(iteration_count)+":  "+str(elapsed)+" sec.")
     print("Total elapsed time = "+str(total_elapsed)+" sec.")
@@ -293,15 +286,15 @@ while do_continue == True:
         new_weightlist[y] = float(new_weightlist[y])/np.mean(new_weightlist)
     
     
-    # Transit scoring function
-    def calc_score(transit_id):
+    # Metafeature scoring function
+    def calc_score(feature_id):
         scorelist = []
         
-        usersyes = score_seeds['usersyes'][score_seeds['transitid']==transit_id]        # Users who identified the feature
+        usersyes = mfscores['usersyes'][mfscores['featureid']==feature_id]        # Users who identified the feature
         usersyes = usersyes.iloc[0][1:-1]
         usersyes = usersyes.split(',')
         
-        usersno = score_seeds['usersno'][score_seeds['transitid']==transit_id]          # Users who did NOT identify the feature
+        usersno = mfscores['usersno'][mfscores['featureid']==feature_id]          # Users who did NOT identify the feature
         usersno = usersno.iloc[0][1:-1]
         usersno = usersno.split(',')
         
@@ -333,9 +326,10 @@ while do_continue == True:
             scoreno = score(allweights, weightsno)
         
         # Append scores to scorelist
-        scorelist.append([transit_id, scoreyes, scoreno])
+        scorelist.append([feature_id, scoreyes, scoreno])
         
         return scorelist
+    
     
     # Initialize timer
     start_time = timeit.default_timer()
@@ -343,15 +337,14 @@ while do_continue == True:
     pool = mp.Pool(mp.cpu_count())
     score_results = []
     # Asynchronous mapping
-    score_results = pool.map_async(calc_score, [transit_id for transit_id in featurelist]).get()
+    score_results = pool.map_async(calc_score, [feature_id for feature_id in featurelist]).get()
     # Close pool
     pool.close()
     
     # Get time results
     elapsed = timeit.default_timer() - start_time
-#    print("Test, elapsed time = "+str(elapsed)+" sec.")                         # TEST ONLY
     total_elapsed = timeit.default_timer() - loop_start_time
-    print("Transit scores calculated, iteration # "+str(iteration_count)+":  "+str(elapsed)+" sec.")
+    print("Metafeature scores calculated, iteration # "+str(iteration_count)+":  "+str(elapsed)+" sec.")
     print("Total elapsed time = "+str(total_elapsed)+" sec.")
     
     # Dissect results into easy-to-organize lists
@@ -363,26 +356,26 @@ while do_continue == True:
         scoreyeslist.append(score_results[x][0][1])
         scorenolist.append(score_results[x][0][2])
     
-    # JUST GOTTA SORT THESE LISTS AND USE THEM TO RECONSTRUCT THE SCORE_SEEDS DF SO THE FUNCTION CALLS EVERYTHING CORRECTLY
-    score_update = pd.DataFrame(np.column_stack([transitid_check, scoreyeslist, scorenolist]), columns=['transitid_check', 'new_scoreyes', 'new_scoreno'])
-    score_update['transitid_check'] = score_update['transitid_check'].astype('int')
-    score_update = score_update.sort_values(by=['transitid_check'], ascending=True)
+    # Just gotta sort these lists and use them to reconstruct the mfscores df so the function calls everything correctly
+    score_update = pd.DataFrame(np.column_stack([transitid_check, scoreyeslist, scorenolist]), columns=['featureid_check', 'new_scoreyes', 'new_scoreno'])
+    score_update['featureid_check'] = score_update['featureid_check'].astype('int')
+    score_update = score_update.sort_values(by=['featureid_check'], ascending=True)
     
     # Check to make sure transit id matching is correct, just once!
     if iteration_count==1:
         for q in range(len(score_update)):
-            old_id = int(score_seeds['transitid'].iloc[q])
-            new_id = score_update['transitid_check'].iloc[q]
+            old_id = int(mfscores['featureid'].iloc[q])
+            new_id = score_update['featureid_check'].iloc[q]
             if old_id != new_id:
-                print("Post-scoring error:  Transit ID mismatch")
+                print("Post-scoring error:  Metafeature ID mismatch")
                 do_continue = False
                 break
             else:
                 continue
     
-    # Replace old score columns in score_seeds dataframe
-    score_seeds['scoreyes'] = score_update['new_scoreyes']
-    score_seeds['scoreno'] = score_update['new_scoreno']
+    # Replace old score columns in mfscores dataframe
+    mfscores['scoreyes'] = score_update['new_scoreyes']
+    mfscores['scoreno'] = score_update['new_scoreno']
     
     
     # Userweight difference function
@@ -425,8 +418,8 @@ while do_continue == True:
     # We may still run into a problem with resonant looping
     # In which the changes in weight sway back and forth over iterations
     # Alternating forever, not necessarily with magnitudes less than our threshhold
-    # We'll check for this occurring, and if it is, we'll change the loop flag
-    # And add some small, random perturbations to the transit scores
+    # We'll check to see if this is occurring, and if it is, we'll change the loop flag
+    # And add some small, random perturbations to the metafeature scores
     # In an effort to try and break the resonance
     
     meanweight = np.mean(new_weightlist)
@@ -498,7 +491,7 @@ while do_continue == True:
     bins0 = list(np.linspace(0,10**minexp,8))
     bins0.pop(-1)
     bins = bins0 + list(bins)
-    fig,ax = plt.subplots(gridspec_kw=dict(right=gridwidth))
+    fig,ax = plt.subplots(figsize=(6,3), gridspec_kw=dict(right=gridwidth))
     for i in range(N):
         ax.hist(weight_distribs[i], bins=bins, log=True, histtype='step', edgecolor=color_list[i], stacked=True, fill=False, linewidth=1.6, linestyle=linestyle_list[i], label=labels_wstart[i])
     ax.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0., ncol=numcols, prop={'size': 10})
@@ -545,7 +538,7 @@ while do_continue == True:
     bins2.pop(-1)
     bins = list(bins1)+bins2+list(bins3)                # Append all into single list of bin bounds
     
-    fig,ax = plt.subplots(gridspec_kw=dict(right=gridwidth))
+    fig,ax = plt.subplots(figsize=(6,3), gridspec_kw=dict(right=gridwidth))
     for i,(linestyle, color) in zip(range(N-1), itertools.product(l_styles, mapcolors)):
         ax.hist(diff_distribs[i], bins=bins, log=True, histtype='step', edgecolor=color, stacked=True, fill=False, linewidth=1.6, linestyle=linestyle, label="iter. "+str(i+1))
     ax.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0., ncol=numcols, prop={'size': 10})
@@ -595,19 +588,19 @@ while do_continue == True:
 
     
     
-    # And transit score distribution changes with iteration progress
+    # And metafeature score distribution changes with iteration progress
     # DIAGNOSTIC
     bins = np.linspace(0,1,31)
-    fig,ax = plt.subplots(gridspec_kw=dict(right=gridwidth))
+    fig,ax = plt.subplots(figsize=(6,3), gridspec_kw=dict(right=gridwidth))
     for i in range(N):
         ax.hist(score_distribs[i], bins=bins, log=True, histtype='step', edgecolor=color_list[i], stacked=True, fill=False, linewidth=1.6, linestyle=linestyle_list[i], label=labels_wstart[i])
     ax.legend(bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0., ncol=numcols, prop={'size': 10})
     ax.set_xlim(-0.1,1.1)
     ax.set_ylim(10,5*10**5)
     ax.set_yticks([10**1,10**2,10**3,10**4,10**5])
-    ax.set_xlabel("Transit score")
+    ax.set_xlabel("Metafeature score")
     ax.set_ylabel("Count")
-    fig.suptitle("Transit 'yes' score distribution as iteration progresses", y=0.99)
+    fig.suptitle("Metafeature 'yes' score distribution as iteration progresses", y=0.99)
     plt.subplots_adjust(left=0.10, right=0.95, top=0.94)
     plt.savefig(user_directory+'plots/score-distrib-change.pdf')   # Overwrite file to save during every iteration
     plt.close()
@@ -621,9 +614,9 @@ while do_continue == True:
     ax.set_xlim(-0.1,1.1)
     ax.set_ylim(10,5*10**5)
     ax.set_yticks([10**1,10**2,10**3,10**4,10**5])
-    ax.set_xlabel("Transit score")
+    ax.set_xlabel("Metafeature score")
     ax.set_ylabel("Count")
-    fig.suptitle("Transit 'yes' score distribution as iteration progresses", y=0.99)
+    fig.suptitle("Metafeature 'yes' score distribution as iteration progresses", y=0.99)
     plt.subplots_adjust(left=0.10, right=0.95, top=0.94)
     plt.savefig(user_directory+'plots/score-distrib-changes/score-distrib-change-'+str(iteration_count)+'.png')   # New file
     plt.close()
@@ -693,13 +686,11 @@ while do_continue == True:
     
     
     
-    
     # Don't forget to update past_weightlist!
     # Crosscheck indices using user_check and userlist
     for z in range(len(user_check)):                                            # z corresponds to index in user_check and new_weightlist
         idx = int(np.where(np.asarray(userlist)==user_check[z])[0][0])          # idx corresponds to index in userlist and past_weightlist
         past_weightlist[idx] = float(new_weightlist[z])                         # Replace past weights with new ones for next iteration
-    
     
     # Pause to save state of weights and scores just in case next iteration is interrupted
     # We just need to store the new userweights in the established dataframe and re-save both the score frame and the weights frame
@@ -708,15 +699,13 @@ while do_continue == True:
     userweights['normcombined'] = weight_update['new_weight']
     
     userweights.to_csv(user_directory+'temp_userweights.tsv', sep="\t", index=False)
-    score_seeds.to_csv(user_directory+'temp_transitscores.tsv', sep="\t", index=False)
-    
+    mfscores.to_csv(user_directory+'temp_mfscores.tsv', sep="\t", index=False)
     
     
     # Write values for this iteration to csv
     file = open(user_directory+'outputlog.csv', 'a', newline='')
     filewrite = csv.writer(file, delimiter=',')
-#    line = [str(iteration_count)]+[str(changing_count)]+[str(largeflux_count)]+[str(meanmagdiff)]+[str(meanweight)]+[str(meanscore)]+[str(timeit.default_timer() - loop_start_time)]
-    line = [str(34)]+[str(changing_count)]+[str(largeflux_count)]+[str(meanmagdiff)]+[str(meanweight)]+[str(meanscore)]+['N/A']
+    line = [str(iteration_count)]+[str(changing_count)]+[str(largeflux_count)]+[str(meanmagdiff)]+[str(meanweight)]+[str(meanscore)]+[str(timeit.default_timer() - loop_start_time)]
     filewrite.writerow(line)
     file.close()
 
@@ -734,9 +723,9 @@ while do_continue == True:
 
         # Reupdate transit scores
         score_update = pd.DataFrame(np.column_stack([scoreyeslist, scorenolist]), columns=['new_scoreyes', 'new_scoreno'])        
-        # Replace old score columns in score_seeds dataframe
-        score_seeds['scoreyes'] = score_update['new_scoreyes']
-        score_seeds['scoreno'] = score_update['new_scoreno']       
+        # Replace old score columns in mfscores dataframe
+        mfscores['scoreyes'] = score_update['new_scoreyes']
+        mfscores['scoreno'] = score_update['new_scoreno']       
         print("Transit scores perturbed.")
     else:
         pass
@@ -745,18 +734,18 @@ while do_continue == True:
 
     # So, at this point, we have done three things in parallel processes:
     # - Adjusted userweights
-    # - Recomputed transit scores
+    # - Recomputed metafeature scores
     # - Checked userweight differences from before and after adjustment
     # The first two of these processes are timed, while the last is not.
     
-    # The 'scoreyes' column of the score_seeds df has been updated
-    # The 'scoreno' column of the score_seeds df has been updated
+    # The 'scoreyes' column of the mfscores df has been updated
+    # The 'scoreno' column of the mfscores df has been updated
     # The past_weightlist list has been updated
-    # The plot of how much the weights changed has been updated and saved
+    # The plots have been updated and saved
     
     # There are three ways that the do_continue Boolean can be changed to False:
     # - an error is raised during weight adjustment
-    # - an error is raised while replacing recalculated transit scores
+    # - an error is raised while replacing recalculated scores
     # - either the new weights are sufficiently similar to their corresponding old weights (on average) or the mean of the weight difference distribution is sufficiently close to zero
 
     # Otherwise, do_continue remains True, and the while loop continues to the next iteration.
@@ -764,12 +753,12 @@ while do_continue == True:
     
     ''' End while loop '''
 
-''' By the end of the iteration, we should have our final userweights, stored as both new_userweights and past_userweights, and the score_seeds dataframe should already be updated with the final transit scores.  We don't even need to recalculate those!  Furthermore, the userweights and the transit scores are already overwritten into their proper frames, from the last step of the loop. '''
+''' By the end of the iteration, we should have our final userweights, stored as both new_userweights and past_userweights, and the mfscores dataframe should already be updated with the final metafeature scores.  We don't even need to recalculate those!  Furthermore, the userweights and the metafeature scores are already overwritten into their proper frames, from the last step of the loop. '''
 
 
 # Rewrite to final files
 userweights.to_csv(user_directory+'final_userweights.tsv', sep="\t", index=False)
-score_seeds.to_csv(user_directory+'final_transitscores.tsv', sep="\t", index=False)
+mfscores.to_csv(user_directory+'final_mfscores.tsv', sep="\t", index=False)
 
 
 
