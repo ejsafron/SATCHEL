@@ -34,6 +34,7 @@ import multiprocessing as mp
 user_directory = '/home/safron/Documents/PH/master/11242020/'    # sif
 
 
+dummy = 1.  # Dummy weight for users who have never seen a simulation
 
 start_time = timeit.default_timer()
 
@@ -60,7 +61,7 @@ metafeatures = pd.read_csv(user_directory+'metafeatures.csv')
 # The only things we'll need from the seed table are username, normcombined, and maybe numclasses
 # But we need to distinguish the number of subject classifications from the number of metafeature classifications, which we also need
 allusers = list(set(db['user_name']))
-userweights = Table({'username':allusers,'normcombined':list(1. for i in range(len(allusers))),'numsubjectclasses':np.zeros(len(allusers)),'numfeatureclasses':np.zeros(len(allusers)),'featuresclassified':np.zeros(len(allusers))}, names=['username','normcombined','numsubjectclasses','numfeatureclasses','featuresclassified'])
+userweights = Table({'username':allusers,'normcombined':list(dummy for i in range(len(allusers))),'numsubjectclasses':np.zeros(len(allusers)),'numfeatureclasses':np.zeros(len(allusers)),'featuresclassified':np.zeros(len(allusers))}, names=['username','normcombined','numsubjectclasses','numfeatureclasses','featuresclassified'])
 
 userweights = userweights.to_pandas()
 
