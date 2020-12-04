@@ -22,35 +22,28 @@ Each of the first three produce at least one output file that is necessary input
 
 ## 1.  `user-weighting.py`
 
-The first piece of the main pipeline is `user-weighting.py`, which requires as input a csv-readable file containing information about simulations (`allsynthetics.dat`) and another csv-readable file containing user classifications (`mdwarf-classifs.csv`).  <div class="text-red mb-2">[NOTE:  Make this callable through user input.]</div>  The following fields are necessary in each input file:
+The first piece of the main pipeline is `user-weighting.py`, which requires as input a csv-readable file containing information about simulations (`syntheticdata.csv`) and another csv-readable file containing user classifications (`mdwarf-classifs.csv`).  <div class="text-red mb-2">[NOTE:  Make this callable through user input.]</div>  The following fields are **necessary** in each input file:
 
 **in simulations file: **
 - `syntheticid`:  integer; unique identifier for a simulation subject
 - `synmin`:  float; early edge of synthetic signal in simulation subject
 - `synmax`:  float; late edge of synthetic signal in simulation subject
-- `transitid`:  string; unique identifier for each signal of simulation subjects
+- `signalid`:  string; unique identifier for each signal of simulation subjects
 
-**in classifications file: **  <div class="text-red mb-2">[NOTE:  Change impending]</div>
+**in classifications file: **
 - `synthetic`:  Boolean; True if classified subject was a simulation, False otherwise
 - `subject_id`:  string; unique identifier for each subject
 - `synthetic_id`:  integer or NaN; identifier that matches `syntheticid` in simulations file, if subject was a simulation, else NaN
 - `user_name`:  string; name of user
-- `quarter`:  string; quarter and segment of Kepler data corresponding to the subject  <div class="text-red mb-2">[NOTE:  deprecate]</div>
 - `classification_id`:  string; unique identifier corresponding to an instance of a user seeing a subject
-- `created_at`:  string; date and time of classification  <div class="text-red mb-2">[NOTE:  deprecate]</div>
-- `data_location`:  string; contains Zooniverse backend location of subject and some subject metadata  <div class="text-red mb-2">[NOTE:  deprecate]</div>
-- `start_time`:  string; global time corresponding to the beginning edge of the subject time-series  <div class="text-red mb-2">[NOTE:  deprecate]</div>
-- `kepler_type`:  string; phase of Kepler mission from which subject data originates  <div class="text-red mb-2">[NOTE:  deprecate]</div>
 - `xMinGlobal`:  float; early edge of user mark on subject, in global time, or NaN if no mark was made
 - `xMaxGlobal`:  float; late edge of user mark on subject, in global time, or NaN if no mark was made
-- `xMinRelative`:  float; early edge of user mark on subject, relative to first data point of subject, or NaN if no mark was made
-- `xMaxRelative`:  float; late edge of user mark on subject, relative to first data point of subject, or NaN if no mark was made
 
 This first piece gauges user performance on simulated signals.  This is done in two parts:
 
 First, the user-made marks must be matched to the synthetic signals (PART 1: MARK MATCHING).  For each synthetic signal (some of which occur in the same subject), some number of classifications were done by users.  For each signal, user marks with non-zero overlap and a midpoint within user-specified tolerance of the synthetic signal's midpoint are found and recorded.  If a single user made more than one matching mark, only the mark with the closest midpoint is recorded as the match.  No user mark counts as a match for more than one synthetic signal.  If a user made no matching marks on a simulation, 'NaN's are recorded.  These records are preserved in `match-user-synthetics.csv`.
 
-Second, user weights are calculated based on how correctly simulations were classified (PART 2: USER WEIGHTING).  Users are "upweighted" for correct markings, and "downweighted" for incorrect markings.  Downweights are not given for failure to mark signals.  The exact amount of each upweight and downweght is impacted by a "transit ID completeness," which is a measure of how difficult a signal is to identify based on the percentage of users that find it, and by a decay function that decreases the relative upweight for multiple signals found in a single subject.  These values, for all users who saw simulations, are recorded in `user-weighting.csv`.
+Second, user weights are calculated based on how correctly simulations were classified (PART 2: USER WEIGHTING).  Users are "upweighted" for correct markings, and "downweighted" for incorrect markings.  Downweights are not given for failure to mark signals.  The exact amount of each upweight given for correctly identifying a synthetic signal is impacted by the "signal ID completeness," which is a measure of how difficult a signal is to identify based on the percentage of users that find it, and by a decay function that decreases the relative upweight for multiple signals found in a single subject.  These values, for all users who saw simulations, are recorded in `user-weighting.csv`.
 
 To run in command line, execute
 ```
@@ -76,15 +69,13 @@ The input required to run this piece is
 - csv-readable metafeatures file
 
 The fields necessary in the metafeatures file are:
-- `transitids`:  integer; unique identifier for each metafeature
-- `lightcurves`:  string; unique identifier for each subject, corresponding to `subject_id` from classifications file
-- `kicids`:  integer; unique identifier for each object from which the subject data was taken, corresponding to `kepler_id` from classifications file  <div class="text-red mb-2">[NOTE:  deprecate?  rename???]</div>
+- `feature_id`:  integer; unique identifier for each metafeature
+- `subject_id`:  string; unique identifier for each subject, corresponding to `subject_id` from classifications file
 - `xmin`:  float; early edge of metafeature on subject, in global time
 - `xmax`:  float; late edge of metafeature on subject, in global time
-- `durations`:  float; duration of metafeature on subject, equivalent to `xmax` - `xmin`
-- `midpoints`:  float; midpoint of metafeature on subject, in global time, equivalent to the mean of `xmin` and `xmax`
+- `duration`:  float; duration of metafeature on subject, equivalent to `xmax` - `xmin`
+- `midpoint`:  float; midpoint of metafeature on subject, in global time, equivalent to the mean of `xmin` and `xmax`
 - `synth_flag`:  Boolean; True if metafeature is in a simulation subject, False otherwise
-- `dupe_flag`:  string; `'dupe of [xxx]'` if metafeature is a duplicate of another, where `[xxx]` is the `transitid` of the duplicated metafeature, or a single space `' '` otherwise  <div class="text-red mb-2">[NOTE:  obsolete, to be deprecated]</div>
 
 The dummy weight is easily adjustable near the beginning of the code, under the unsurprising variable name `dummy`.
 
