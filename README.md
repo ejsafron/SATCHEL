@@ -1,7 +1,7 @@
-# PH-pipeline
-Pipeline to search for long-period exoplanet signals in <i>Kepler</i> time-series data classified on the Planet Hunters website.
+# SATCHEL
+Search Algorithm for Transits in the Citizen science Hunt for Exoplanets in Lightcurves (SATCHEL):  A pipeline to search for individual signals of interest in time-series data classified through crowdsourcing.
 
-This pipeline is a work in progress, currently in development as a Ph.D. project.  The first piece of the pipeline (userweighting.py) was largely contributed by Joey Schmitt, from work done in 2015.  That piece was heavily edited, the rest were written, and all are subject to editing by Emily Safron, Ph.D. candidate under Dr. Tabetha Boyajian at Louisiana State University.  Email:  ejsafron@gmail.com
+This pipeline was built for the purpose of finding long-period exoplanet transit signals in <i>Kepler</i> photometric time-series data, but may be adapted for searches for any kind of one-dimensional signals in crowdsourced classifications.  It has been developed as part of a Ph.D. project.  The first piece of the main pipeline (userweighting.py) was largely contributed by Joey Schmitt, from work done in 2015.  That piece was heavily edited, the rest were written, and all are subject to editing by Emily Safron, Ph.D. candidate under Dr. Tabetha Boyajian at Louisiana State University.  Email:  ejsafron@gmail.com
 
 <h3>Background</h3>
 
@@ -48,12 +48,22 @@ The file structure of this repository is as follows:
 
 Below is a visual representation of how the pipeline works, from the user interaction with the data all the way through the end of the pipeline (where human interaction begins).  The end goal, in my case, is to get a list of long-period Planet Hunters Objects of Interest (PHOIs).  This involves a couple of stages of vetting post-pipeline.
 
-<img src="https://github.com/ejsafron/PH-pipeline/blob/master/img/flowchart.png" alt="please work" style="max-width:100%;">
+<img src="https://github.com/ejsafron/PH-pipeline/blob/master/img/flowchart-proper.pdf" alt="please work" style="max-width:100%;">
 
-Each individual process is explained in more detail in README.txt form.  For more detailed information about the vetting processes, please see [paper, in prep.].
+Each individual process is explained in more detail in README.txt form.  For more detailed information about the vetting processes, please see Safron et al. 2021 (submitted).
 
-<h3>To run or adapt this pipeline:</h3>
+<h3>Installation:</h3>
+
+To install SATCHEL, run:
+<codeblock>
+  $> git clone https://github.com/ejsafron/PH-pipeline
+</codeblock>
+and move input files to the <codeblock>main</codeblock> subdirectory.
 
 <h3>To report bugs:</h3>
 
+Create an issue in this repository, or send an email to ejsafron@gmail.com.
+
 <h3>To cite this work:</h3>
+
+Please cite <i>The SATCHEL pipeline: A general tool for data classified through citizen science</i>, Safron et al. 2021 (submitted to MNRAS).  Further citation information will be forthcoming.
