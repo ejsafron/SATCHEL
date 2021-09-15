@@ -55,10 +55,10 @@ Each individual process is explained in more detail in README.txt form.  For mor
 <h3>Installation:</h3>
 
 To install SATCHEL, run:
-<codeblock>
+```
   $> git clone https://github.com/ejsafron/PH-pipeline
-</codeblock>
-and move input files to the <codeblock>main</codeblock> subdirectory.
+```
+and move input files to the `main` subdirectory.
 
 <h3>To report bugs:</h3>
 
